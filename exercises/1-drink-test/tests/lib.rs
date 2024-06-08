@@ -144,15 +144,47 @@ fn expired_subscribers_cannot_vote(mut session: Session) -> TestResult {
     Ok(())
 }
 
-// #[drink::test]
-// fn cannot_vote_two_times(mut session: Session) -> TestResult {
-//     todo!("Implement test")
-// }
-//
-// #[drink::test]
-// fn voting_works(mut session: Session) -> TestResult {
-//     todo!("Implement test")
-// }
+#[drink::test]
+fn cannot_vote_two_times(mut session: Session) -> TestResult {
+    deploy_contracts(&mut session)?;
+
+    session
+        .call::<_, Result<(), VotingError>>("start_voting", &["10"], NO_ENDOWMENT)??
+        .expect("start_voting failed");
+
+    session.set_actor(BOB.into());
+    session
+        .call::<_, Result<(), VotingError>>("vote_for", &["1"], NO_ENDOWMENT)??
+        .expect("First vote failed");
+
+    let error = session.call_and_expect_error::<_, VotingError>("vote_for", &["1"], NO_ENDOWMENT)?;
+    assert_eq!(error, VotingError::AlreadyVoted);
+
+    Ok(())
+}
+
+#[drink::test]
+fn voting_works(mut session: Session) -> TestResult {
+    deploy_contracts(&mut session)?;
+
+    session
+        .call::<_, Result<(), VotingError>>("start_voting", &["10"], NO_ENDOWMENT)??
+        .expect("start_voting failed");
+
+    session.set_actor(BOB.into());
+    session
+        .call::<_, Result<(), VotingError>>("vote_for", &["1"], NO_ENDOWMENT)??
+        .expect("Vote failed");
+
+    session.sandbox().build_blocks(15);
+
+    let result = session
+        .call::<_, Result<VotingResult, VotingError>>("end_voting", NO_ARGS, NO_ENDOWMENT)??
+        .expect("end_voting failed");
+    assert_eq!(result, VotingResult::Draw);
+
+    Ok(())
+}
 
 mod utils {
     use drink::{
